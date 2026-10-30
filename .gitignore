@@ -1,0 +1,15 @@
+node_modules
+.next
+out
+.env
+.env.local
+.env*.local
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+data/
+npm-debug.log*
+*.log
+*.ex5
+.DS_Store

@@ -1,0 +1,305 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #0f1420;
+  --card: #1a2233;
+  --card-border: #2a3550;
+  --text: #e6edf7;
+  --muted: #8a97ad;
+  --accent: #3b82f6;
+  --pos: #22c55e;
+  --neg: #ef4444;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+}
+
+/* ---------- 登录页 ---------- */
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-card {
+  width: 320px;
+  padding: 32px 28px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login-card h1 {
+  font-size: 24px;
+  text-align: center;
+}
+
+.login-sub {
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.login-card input {
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+}
+
+.login-card input:focus {
+  border-color: var(--accent);
+}
+
+.login-error {
+  color: var(--neg);
+  font-size: 13px;
+  text-align: center;
+}
+
+.login-card button {
+  padding: 10px;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.login-card button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------- 看板 ---------- */
+.board {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 24px 60px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0 20px;
+  border-bottom: 1px solid var(--card-border);
+  margin-bottom: 24px;
+}
+
+.brand {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.new-group {
+  display: flex;
+  gap: 8px;
+}
+
+.new-group input {
+  padding: 8px 10px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  width: 160px;
+}
+
+.new-group input:focus {
+  border-color: var(--accent);
+}
+
+.new-group button,
+.logout {
+  padding: 8px 14px;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.logout {
+  background: transparent;
+  border: 1px solid var(--card-border);
+  color: var(--muted);
+}
+
+.section {
+  margin-bottom: 28px;
+}
+
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-title.editable {
+  cursor: pointer;
+  color: var(--text);
+}
+
+.section-title.editable:hover {
+  color: var(--accent);
+}
+
+.count {
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.card-name {
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-name:hover {
+  color: var(--accent);
+}
+
+.card-server {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.card-login {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.card-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.metric {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.metric-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.metric-value {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-value.pos {
+  color: var(--pos);
+}
+
+.metric-value.neg {
+  color: var(--neg);
+}
+
+.card-empty {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.card-foot {
+  margin-top: auto;
+}
+
+.grp-select {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  outline: none;
+}
+
+.empty-group {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 12px;
+  border: 1px dashed var(--card-border);
+  border-radius: 12px;
+  grid-column: 1 / -1;
+}
+
+.error,
+.loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.error {
+  color: var(--neg);
+}

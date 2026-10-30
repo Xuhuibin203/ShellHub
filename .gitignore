@@ -12,4 +12,5 @@ data/
 npm-debug.log*
 *.log
 *.ex5
+开发日志.md
 .DS_Store

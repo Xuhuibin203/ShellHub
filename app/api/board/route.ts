@@ -15,7 +15,7 @@ export async function GET() {
     .all() as { id: number; name: string; sortOrder: number }[];
 
   const accounts = db
-    .prepare("SELECT id, login, name, group_id AS groupId, server FROM account ORDER BY id")
+    .prepare("SELECT id, login, name, group_id AS groupId, server FROM account ORDER BY sort_order, id")
     .all() as { id: number; login: string; name: string | null; groupId: number | null; server: string | null }[];
 
   const latestRows = db

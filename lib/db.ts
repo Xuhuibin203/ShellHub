@@ -27,6 +27,7 @@ export function getDb(): Database.Database {
       name TEXT,
       group_id INTEGER,
       server TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS submission (
@@ -40,5 +41,12 @@ export function getDb(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_submission_account
       ON submission(account_id, created_at DESC);
   `);
+
+  // 迁移：老库补 account.sort_order 列（用于看板拖拽排序）
+  const cols = db.prepare("PRAGMA table_info(account)").all() as { name: string }[];
+  if (!cols.some((c) => c.name === "sort_order")) {
+    db.exec("ALTER TABLE account ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0");
+  }
+
   return db;
 }

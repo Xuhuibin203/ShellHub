@@ -25,16 +25,23 @@ type AccountItem = {
   latest: Latest | null;
 };
 
+type Summary = {
+  equity: number;
+  todayProfit: number;
+  weekProfit: number;
+};
+
 type Group = {
   id: number;
   name: string;
   sortOrder: number;
   accounts: AccountItem[];
+  summary: Summary;
 };
 
 type BoardData = {
   groups: Group[];
-  ungrouped: AccountItem[];
+  ungrouped: { accounts: AccountItem[]; summary: Summary };
 };
 
 type DropHint = {
@@ -125,7 +132,7 @@ export default function Board() {
 
   function scopeAccounts(scope: string): AccountItem[] {
     if (!data) return [];
-    if (scope === "ungrouped") return data.ungrouped;
+    if (scope === "ungrouped") return data.ungrouped.accounts;
     const g = data.groups.find((g) => g.id === Number(scope.slice("group-".length)));
     return g?.accounts ?? [];
   }
@@ -213,6 +220,30 @@ export default function Board() {
     return cls;
   }
 
+  const renderSummary = (s: Summary) => (
+    <div className="group-summary">
+      <span className="sum-title">整组</span>
+      <div className="sum-item">
+        <span className="sum-label">净值</span>
+        <span className="sum-value">{fmt(s.equity)}</span>
+      </div>
+      <div className="sum-item">
+        <span className="sum-label">今日</span>
+        <span className={`sum-value ${profitClass(s.todayProfit)}`}>
+          {s.todayProfit > 0 ? "+" : ""}
+          {fmt(s.todayProfit)}
+        </span>
+      </div>
+      <div className="sum-item">
+        <span className="sum-label">本周</span>
+        <span className={`sum-value ${profitClass(s.weekProfit)}`}>
+          {s.weekProfit > 0 ? "+" : ""}
+          {fmt(s.weekProfit)}
+        </span>
+      </div>
+    </div>
+  );
+
   async function logout() {
     await fetch("/api/logout", { method: "POST" });
     window.location.href = "/login";
@@ -264,10 +295,10 @@ export default function Board() {
         onDrop={(e) => cardDrop(e, scope, acc)}
       >
         <div className="card-head">
-          <span className="card-hold">{holdText}</span>
+          <span className="card-name">{acc.name ?? acc.login}</span>
           {acc.server && <span className="card-server">{acc.server}</span>}
         </div>
-        <div className="card-login">#{acc.login}</div>
+        <div className="card-hold">{holdText}</div>
 
         {acc.latest ? (
           <div className="card-metrics">
@@ -300,7 +331,10 @@ export default function Board() {
   return (
     <main className="board">
       <header className="topbar">
-        <div className="brand">ShellHub</div>
+        <div className="brand">
+          <img className="brand-logo" src="/logo.png" alt="ShellHub" />
+          ShellHub
+        </div>
         <div className="topbar-actions">
           <div className="new-group">
             <input
@@ -319,17 +353,20 @@ export default function Board() {
         </div>
       </header>
 
-      {data.ungrouped.length > 0 && (
+      {data.ungrouped.accounts.length > 0 && (
         <section className="section">
-          <h2 className="section-title">
-            未分组 <span className="count">{data.ungrouped.length}</span>
-          </h2>
+          <div className="section-head">
+            <h2 className="section-title">
+              未分组 <span className="count">{data.ungrouped.accounts.length}</span>
+            </h2>
+            {renderSummary(data.ungrouped.summary)}
+          </div>
           <div
             className={gridClass("ungrouped")}
             onDragOver={(e) => gridDragOver(e, "ungrouped")}
             onDrop={(e) => gridDrop(e, "ungrouped")}
           >
-            {data.ungrouped.map((a) => renderCard(a, "ungrouped"))}
+            {data.ungrouped.accounts.map((a) => renderCard(a, "ungrouped"))}
           </div>
         </section>
       )}
@@ -338,13 +375,16 @@ export default function Board() {
         const scope = `group-${g.id}`;
         return (
           <section className="section" key={g.id}>
-            <h2
-              className="section-title editable"
-              onClick={() => renameGroup(g.id, g.name)}
-              title="点击重命名"
-            >
-              {g.name} <span className="count">{g.accounts.length}</span>
-            </h2>
+            <div className="section-head">
+              <h2
+                className="section-title editable"
+                onClick={() => renameGroup(g.id, g.name)}
+                title="点击重命名"
+              >
+                {g.name} <span className="count">{g.accounts.length}</span>
+              </h2>
+              {renderSummary(g.summary)}
+            </div>
             <div
               className={gridClass(scope)}
               onDragOver={(e) => gridDragOver(e, scope)}

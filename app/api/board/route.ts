@@ -68,9 +68,25 @@ export async function GET() {
     }
   }
 
+  const summarize = (list: Decorated[]) => {
+    let equity = 0;
+    let todayProfit = 0;
+    let weekProfit = 0;
+    for (const a of list) {
+      if (!a.latest) continue;
+      equity += a.latest.equity;
+      todayProfit += a.latest.todayProfit;
+      weekProfit += a.latest.weekProfit;
+    }
+    return { equity, todayProfit, weekProfit };
+  };
+
   return NextResponse.json({
     ok: true,
-    groups: [...groupMap.values()],
-    ungrouped,
+    groups: [...groupMap.values()].map((g) => ({ ...g, summary: summarize(g.accounts) })),
+    ungrouped: {
+      accounts: ungrouped,
+      summary: summarize(ungrouped),
+    },
   });
 }

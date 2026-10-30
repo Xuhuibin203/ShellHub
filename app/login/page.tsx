@@ -35,6 +35,7 @@ export default function LoginPage() {
   return (
     <main className="login-wrap">
       <form className="login-card" onSubmit={submit}>
+        <img className="login-logo" src="/logo.png" alt="ShellHub" />
         <h1>ShellHub</h1>
         <p className="login-sub">黄金策略收益看板</p>
         <input

@@ -42,6 +42,14 @@ body {
   gap: 14px;
 }
 
+.login-logo {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto;
+  display: block;
+  object-fit: contain;
+}
+
 .login-card h1 {
   font-size: 24px;
   text-align: center;
@@ -106,8 +114,17 @@ body {
 }
 
 .brand {
+  display: flex;
+  align-items: center;
   font-size: 20px;
   font-weight: 700;
+}
+
+.brand-logo {
+  width: 28px;
+  height: 28px;
+  margin-right: 8px;
+  object-fit: contain;
 }
 
 .topbar-actions {
@@ -157,14 +174,59 @@ body {
   margin-bottom: 28px;
 }
 
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
 .section-title {
   font-size: 15px;
   font-weight: 600;
   color: var(--muted);
-  margin-bottom: 14px;
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.group-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.sum-title {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.sum-item {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.sum-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.sum-value {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.sum-value.pos {
+  color: var(--pos);
+}
+
+.sum-value.neg {
+  color: var(--neg);
 }
 
 .section-title.editable {
@@ -247,12 +309,17 @@ body {
   gap: 8px;
 }
 
-.card-hold {
+.card-name {
   font-size: 14px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.card-hold {
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .card-server {

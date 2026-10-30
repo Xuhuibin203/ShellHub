@@ -12,6 +12,7 @@ type Latest = {
   equity: number;
   todayProfit: number;
   weekProfit: number;
+  holdHours: number;
   createdAt: number;
 };
 
@@ -107,23 +108,6 @@ export default function Board() {
     if (!t) return;
     try {
       await fetch(`/api/groups/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: t }),
-      });
-      reload();
-    } catch (e: any) {
-      alert(e.message);
-    }
-  }
-
-  async function renameAccount(id: number, current: string) {
-    const name = window.prompt("账号显示名", current);
-    if (name == null) return;
-    const t = name.trim();
-    if (!t) return;
-    try {
-      await fetch(`/api/accounts/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: t }),
@@ -256,6 +240,12 @@ export default function Board() {
       cls.push(dropHint.before ? "drop-before" : "drop-after");
     }
 
+    const holdHours = acc.latest?.holdHours ?? 0;
+    if (holdHours > 24) cls.push("hold-24");
+    else if (holdHours > 12) cls.push("hold-12");
+    else if (holdHours > 6) cls.push("hold-6");
+    const holdText = holdHours > 1 ? `扛单 ${Math.floor(holdHours)}小时` : "未扛单";
+
     return (
       <div
         className={cls.join(" ")}
@@ -274,13 +264,7 @@ export default function Board() {
         onDrop={(e) => cardDrop(e, scope, acc)}
       >
         <div className="card-head">
-          <span
-            className="card-name"
-            onClick={() => renameAccount(acc.id, acc.name ?? acc.login)}
-            title="点击改名"
-          >
-            {acc.name ?? acc.login}
-          </span>
+          <span className="card-hold">{holdText}</span>
           {acc.server && <span className="card-server">{acc.server}</span>}
         </div>
         <div className="card-login">#{acc.login}</div>

@@ -21,7 +21,7 @@ export async function GET() {
   const latestRows = db
     .prepare(
       `SELECT s.account_id AS accountId, s.equity, s.today_profit AS todayProfit,
-              s.week_profit AS weekProfit, s.created_at AS createdAt
+              s.week_profit AS weekProfit, s.hold_hours AS holdHours, s.created_at AS createdAt
        FROM submission s
        JOIN (SELECT account_id, MAX(id) AS mid FROM submission GROUP BY account_id) t
          ON s.id = t.mid`
@@ -31,6 +31,7 @@ export async function GET() {
     equity: number;
     todayProfit: number;
     weekProfit: number;
+    holdHours: number;
     createdAt: number;
   }[];
 

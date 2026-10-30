@@ -36,6 +36,7 @@ export function getDb(): Database.Database {
       equity REAL NOT NULL,
       today_profit REAL NOT NULL,
       week_profit REAL NOT NULL,
+      hold_hours REAL NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_submission_account
@@ -46,6 +47,12 @@ export function getDb(): Database.Database {
   const cols = db.prepare("PRAGMA table_info(account)").all() as { name: string }[];
   if (!cols.some((c) => c.name === "sort_order")) {
     db.exec("ALTER TABLE account ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0");
+  }
+
+  // 迁移：老库补 submission.hold_hours 列（扛单时长）
+  const subCols = db.prepare("PRAGMA table_info(submission)").all() as { name: string }[];
+  if (!subCols.some((c) => c.name === "hold_hours")) {
+    db.exec("ALTER TABLE submission ADD COLUMN hold_hours REAL NOT NULL DEFAULT 0");
   }
 
   return db;

@@ -305,6 +305,11 @@
 #define MAX_PERIOD_HIST 10  // 周期历史保留条数(每周期一行,满则滚动丢弃最旧)
 #define LOG_GAP_SEC     600 // 交易闸门错误日志节流(GateThrottled用);v10.43起救援拦截日志不再使用(只状态变化式)
 
+// v11.1 网站上报硬编码(不再作为输入参数)
+const bool   UPLOAD_ENABLED = true;
+const string UPLOAD_URL     = "http://101.37.29.106:35741";
+const string UPLOAD_KEY     = "2c7b275a05bb55dae19fcf67349e62ea";
+
 //=== 输入参数 ======================================================
 //--- 利润回撤模式
 enum ENUM_TRAIL_MODE
@@ -337,12 +342,12 @@ input int    InpRescueCntStep    = 1;     // 每轮张数递增(v5.00:基数固�
 input string InpRescueLotSeq     = "0.12,0.18,0.24,0.30,0.36,0.42,0.48,0.54,0.60,0.66";   // 救援手数序列(v10.42:逗号分隔,从左到右=通道第1,2,3…张救援单最终手数;1~20个值,用完沿用最后一个;主/反组共用;中英文逗号均可)
 input double InpRescueCooldown   = 2000;     // 救援冷却(秒,本通道每次救援成交后需冷却此秒数才可再补,间距+冷却同时满足才补;0=不冷却)
 input double InpRescueCardSec    = 60;     // 出牌间隔(秒,逐张出牌:每张救援单之间须间隔此秒数,未到则暂停出牌;0=整轮同时出,旧行为)
-input bool   InpRescueGlobalGap  = false;  // 全局救援间距闸门(v5.20;v10.43默认改关,用户2026-10-28拍板:实测1月底该闸把深救全堵死——救1张后25美元内新锚点全部被拦1466次/7天,救援死区致扛单亏损扩大;开=同方向任意救援单触发价距全EA最近同方向救援单≥出发+加成,跨通道跨组;关=间距只在通道内生效)
-input double InpRescueLotsCap    = 2.0;    // 救援总手数上限(v10.10:全EA同方向救援单累计总手数达到此值后停止再出救援牌,封顶"组转亏后救援链完整展开"的逃逸路径敞口;0=不限制,旧行为)
+input bool   InpRescueGlobalGap  = true;  // 全局救援间距闸门(v5.20;v10.43默认改关,用户2026-10-28拍板:实测1月底该闸把深救全堵死——救1张后25美元内新锚点全部被拦1466次/7天,救援死区致扛单亏损扩大;开=同方向任意救援单触发价距全EA最近同方向救援单≥出发+加成,跨通道跨组;关=间距只在通道内生效)
+input double InpRescueLotsCap    = 10.0;    // 救援总手数上限(v10.10:全EA同方向救援单累计总手数达到此值后停止再出救援牌,封顶"组转亏后救援链完整展开"的逃逸路径敞口;0=不限制,旧行为)
 
 input group "═══ 反向组(救援联动,最多2组并行) ═══"
 input int    InpPairRescueCnt    = 1;      // 反向组启动救援次数(存活组累计救援触发≥此值开反向组,唯一启动条件;时间模式反向组同用此规则)
-input int    InpPairCooldownSec  = 1;      // 反向组间隔秒数(v8.80:上一张反向单平仓后须满此秒数才能再开反向组;0=不间隔,旧行为)
+input int    InpPairCooldownSec  = 60;      // 反向组间隔秒数(v8.80:上一张反向单平仓后须满此秒数才能再开反向组;0=不间隔,旧行为)
 input double InpPairGridA        = 5;    // 反向组网格间距(v10.40:阶段一档位P0±此值,美元;默认=主组A,行为不变)
 input double InpPairStepB        = 10;    // 反向组补仓触发步长(v10.40:阶段二触发线外扩间距,美元;默认=主组B,行为不变)
 input double InpPairRescueDist   = 15.0;  // 反向组救援触发距离(v10.40:反向组套牢单锚定±此值,美元;0=反向组套牢单不救援;默认=主组距离,行为不变)
@@ -360,7 +365,7 @@ input bool   InpBoxShow     = true; // 画方向框(上/下轨/中点线+底色�
 input group "═══ 止盈/利润回撤(账户货币) ═══"
 input double InpTwoSideProfit = 2.00;  // 止盈阈值(单边/双边统一,=回撤跟踪激活线;按手数开关开时作兜底)
 input bool   InpProfitByLot   = true; // 主止盈按手数(v10.30:开=主止盈=组内最新成交主链单手数×每手系数,补仓后自动放大;关=固定InpTwoSideProfit旧行为)
-input double InpProfitPerLot  = 200;   // 主止盈每手系数(v10.30:止盈=最新主链单手数×此值,0.01×200=2.00与固定2.00等价起步;仅按手数开关开时生效)
+input double InpProfitPerLot  = 100;   // 主止盈每手系数(v10.30:止盈=最新主链单手数×此值,0.01×200=2.00与固定2.00等价起步;仅按手数开关开时生效)
 input double InpRescueProfit  = 24;     // 救援止盈阈值(组内持有救援单时替代主止盈,整组净利口径整组平;0=不启用,救援阶段也用主止盈)
 input bool   InpRescueProfitByLot = true; // 救援止盈按手数(v5.60:开=止盈=最新成交救援单手数×每手系数,每次救援成交后自动切换;关=固定InpRescueProfit)
 input double InpRescueProfitPerLot  = 100; // 救援止盈每手系数(v5.60:止盈=手数×此值,0.12×100=12,0.24×100=24;仅按手数开关开时生效)
@@ -391,11 +396,6 @@ input bool InpShowDashboard = true;  // 显示状态面板
 input int  InpPeriodDays    = 14;     // 统计周期(天)
 input int  InpPanelWidth    = 460;   // 面板宽度(像素,最小320)
 input int  InpPanelHeight   = 800;   // 面板高度(像素,最小440)
-
-input group "═══ 网站上报(v11.0) ═══"
-input bool   InpUploadEnabled = true;  // 启用网站上报(平组完成后POST净值/今日/本周利润)
-input string InpUploadUrl     = "http://101.37.29.106:35741"; // 网站服务器地址(含端口,不要以/结尾)
-input string InpUploadKey     = "2c7b275a05bb55dae19fcf67349e62ea"; // 上报 Key(生产)
 
 //=== 组状态 ========================================================
 struct GroupState
@@ -520,6 +520,7 @@ datetime g_todayEpoch     = 0;  // v11.0 今日零点时间戳(自然日余额�
 double   g_todayBase      = 0;  // v11.0 今日零点余额
 datetime g_weekEpoch      = 0;  // v11.0 本周一零点时间戳
 double   g_weekBase       = 0;  // v11.0 本周一零点余额
+datetime g_lastHoldUpload = 0;  // v11.2 上次扛单主动上报时刻(每小时一次)
 
 //=== 工具函数 ======================================================
 void LogInfo(string msg)  { Print("[", EA_TAG, "] ", msg); }
@@ -773,34 +774,68 @@ void TodayWeekUpdate()
    RollTodayWeek();
 }
 
+// v11.2 当前本EA持仓最早开仓时间到现在的小时数;无持仓=0
+double GetHoldHours()
+{
+   datetime oldest = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong tk = PositionGetTicket(i);
+      if(tk == 0) continue;
+      if(PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
+      long mg = PositionGetInteger(POSITION_MAGIC);
+      if(mg < InpMagic || mg >= InpMagic + g_maxGroups) continue;
+      datetime t = (datetime)PositionGetInteger(POSITION_TIME);
+      if(oldest == 0 || t < oldest) oldest = t;
+   }
+   if(oldest == 0) return 0.0;
+   return (double)(TimeCurrent() - oldest) / 3600.0;
+}
+
 void UploadReport()
 {
-   if(!InpUploadEnabled) return;
-   if(InpUploadUrl == "" || InpUploadKey == "") return;
+   if(!UPLOAD_ENABLED) return;
 
    double balance = AccountInfoDouble(ACCOUNT_BALANCE);
    double equity  = AccountInfoDouble(ACCOUNT_EQUITY);
    double todayProfit = balance - g_todayBase;
    double weekProfit  = balance - g_weekBase;
+   double holdHours   = GetHoldHours();   // v11.2 扛单小时数(无持仓=0)
 
    string login = IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN));
    string json = StringFormat(
-      "{\"login\":\"%s\",\"equity\":%.2f,\"todayProfit\":%.2f,\"weekProfit\":%.2f,\"server\":\"%s\"}",
-      login, equity, todayProfit, weekProfit, AccountInfoString(ACCOUNT_SERVER));
+      "{\"login\":\"%s\",\"equity\":%.2f,\"todayProfit\":%.2f,\"weekProfit\":%.2f,\"server\":\"%s\",\"holdHours\":%.1f}",
+      login, equity, todayProfit, weekProfit, AccountInfoString(ACCOUNT_SERVER), holdHours);
 
    char post[];
    char result[];
-   string reqHeaders = "Content-Type: application/json\r\nx-api-key: " + InpUploadKey + "\r\n";
+   string reqHeaders = "Content-Type: application/json\r\nx-api-key: " + UPLOAD_KEY + "\r\n";
    string respHeaders;
    int n = StringToCharArray(json, post, 0, WHOLE_ARRAY, CP_UTF8);
    ArrayResize(post, n - 1);
-   int code = WebRequest("POST", InpUploadUrl + "/api/submit", reqHeaders, 10000, post, result, respHeaders);
+   int code = WebRequest("POST", UPLOAD_URL + "/api/submit", reqHeaders, 10000, post, result, respHeaders);
    string resp = CharArrayToString(result, 0, WHOLE_ARRAY, CP_UTF8);
 
    if(code == 200)
       LogInfo(StringFormat("[上报] 成功:净值%.2f 今日%+.2f 本周%+.2f", equity, todayProfit, weekProfit));
    else
       LogError(StringFormat("[上报] 失败 HTTP %d 响应=%s", code, resp));
+}
+
+// v11.2 扛单超过1小时后,每小时主动上报一次(让看板实时显示扛单时长)
+void MaybeUploadHold()
+{
+   if(!UPLOAD_ENABLED) return;
+   double h = GetHoldHours();
+   if(h <= 1.0)
+   {
+      g_lastHoldUpload = 0;   // 未扛单/扛单不足1小时,重置计时
+      return;
+   }
+   datetime now = TimeCurrent();
+   if(g_lastHoldUpload != 0 && now - g_lastHoldUpload < 3600) return;  // 距上次上报不足1小时
+   g_lastHoldUpload = now;
+   UploadReport();
 }
 
 // v8.20 时间驱动开组模式状态持久化(仅计时基准;v8.10的方向交替tmDir已退场)
@@ -3307,6 +3342,7 @@ void OnTick()
    // 6. 周期滚动/最大亏损跟踪 + 历史盈亏增量累计
    PeriodUpdate();
    TodayWeekUpdate();     // v11.0 今日/本周基准滚动(跨天/跨周)
+   MaybeUploadHold();     // v11.2 扛单超1小时每小时上报
    UpdateRealizedProfit();
 
    // 7. 画线 + 面板(非可视化回测跳过全部图表绘制/对象操作,

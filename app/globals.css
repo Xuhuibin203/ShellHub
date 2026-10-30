@@ -225,6 +225,21 @@ body {
   border-radius: 12px;
 }
 
+.card.hold-6 {
+  background: #3d3318;
+  border-color: #a67c00;
+}
+
+.card.hold-12 {
+  background: #3d2a18;
+  border-color: #c05e00;
+}
+
+.card.hold-24 {
+  background: #3d181c;
+  border-color: #c62828;
+}
+
 .card-head {
   display: flex;
   align-items: center;
@@ -232,17 +247,12 @@ body {
   gap: 8px;
 }
 
-.card-name {
-  font-size: 15px;
+.card-hold {
+  font-size: 14px;
   font-weight: 600;
-  cursor: pointer;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.card-name:hover {
-  color: var(--accent);
 }
 
 .card-server {

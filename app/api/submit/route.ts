@@ -22,7 +22,8 @@ export async function POST(req: Request) {
   const equity = Number(body.equity);
   const todayProfit = Number(body.todayProfit);
   const weekProfit = Number(body.weekProfit);
-  if (!Number.isFinite(equity) || !Number.isFinite(todayProfit) || !Number.isFinite(weekProfit)) {
+  const holdHours = Number(body.holdHours ?? 0);
+  if (!Number.isFinite(equity) || !Number.isFinite(todayProfit) || !Number.isFinite(weekProfit) || !Number.isFinite(holdHours)) {
     return NextResponse.json({ ok: false, error: "invalid numbers" }, { status: 400 });
   }
 
@@ -50,8 +51,8 @@ export async function POST(req: Request) {
   }
 
   db.prepare(
-    "INSERT INTO submission (account_id, equity, today_profit, week_profit, created_at) VALUES (?, ?, ?, ?, ?)"
-  ).run(accountId, equity, todayProfit, weekProfit, now);
+    "INSERT INTO submission (account_id, equity, today_profit, week_profit, hold_hours, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+  ).run(accountId, equity, todayProfit, weekProfit, holdHours, now);
 
   return NextResponse.json({ ok: true, accountId });
 }

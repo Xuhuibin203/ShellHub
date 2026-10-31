@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifySession, SESSION_COOKIE } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/users";
 
 // 拖拽排序 / 移组：把 accountId 放入 groupId（可为 null=未分组），
-// 并按 orderedIds 的顺序重写目标组内账号的 sort_order。
+// 并按 orderedIds 的顺序重写目标组内账号的 sort_order。仅管理员可用。
 export async function POST(req: Request) {
-  const c = await cookies();
-  if (!verifySession(c.get(SESSION_COOKIE)?.value)) {
+  const me = await getCurrentUser();
+  if (!me) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  if (me.role !== "admin") {
+    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
 
   let body: any;

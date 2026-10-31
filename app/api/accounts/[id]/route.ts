@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifySession, SESSION_COOKIE } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/users";
 
 export async function PATCH(
   req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const c = await cookies();
-  if (!verifySession(c.get(SESSION_COOKIE)?.value)) {
+  const me = await getCurrentUser();
+  if (!me) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  if (me.role !== "admin") {
+    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
 
   const { id } = await ctx.params;

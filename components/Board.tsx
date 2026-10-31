@@ -6,6 +6,9 @@ import {
   useState,
   type DragEvent as ReactDragEvent,
 } from "react";
+import Link from "next/link";
+
+type Role = "admin" | "user";
 
 type Latest = {
   accountId: number;
@@ -35,13 +38,23 @@ type Group = {
   id: number;
   name: string;
   sortOrder: number;
+  isPublic: boolean;
+  ownerUserId: number | null;
+  ownerUsername: string | null;
   accounts: AccountItem[];
   summary: Summary;
 };
 
+type Me = {
+  id: number;
+  username: string;
+  role: Role;
+};
+
 type BoardData = {
+  me: Me | null;
   groups: Group[];
-  ungrouped: { accounts: AccountItem[]; summary: Summary };
+  ungrouped: { accounts: AccountItem[]; summary: Summary } | null;
 };
 
 type DropHint = {
@@ -73,10 +86,6 @@ export default function Board() {
   const reload = useCallback(async () => {
     try {
       const res = await fetch("/api/board", { cache: "no-store" });
-      if (res.status === 401) {
-        window.location.href = "/login";
-        return;
-      }
       const json = await res.json();
       if (json.ok) setData(json);
       else setError(json.error || "加载失败");
@@ -85,11 +94,18 @@ export default function Board() {
     }
   }, []);
 
+  const role = data?.me?.role;
+
   useEffect(() => {
     reload();
-    const t = setInterval(reload, 15000);
-    return () => clearInterval(t);
   }, [reload]);
+
+  // 轮询间隔：管理员 15 秒，普通用户 30 秒，游客 60 秒
+  useEffect(() => {
+    const interval = role === "admin" ? 15000 : role === "user" ? 30000 : 60000;
+    const t = setInterval(reload, interval);
+    return () => clearInterval(t);
+  }, [reload, role]);
 
   async function createGroup() {
     const name = newGroup.trim();
@@ -125,6 +141,18 @@ export default function Board() {
     }
   }
 
+  async function deleteGroup(id: number, name: string) {
+    if (!window.confirm(`确定删除分组「${name}」？组内账号将回到未分组。`)) return;
+    try {
+      const res = await fetch(`/api/groups/${id}`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "删除失败");
+      reload();
+    } catch (e: any) {
+      alert(e.message);
+    }
+  }
+
   function scopeGroupId(scope: string): number | null {
     if (scope === "ungrouped") return null;
     return Number(scope.slice("group-".length));
@@ -132,7 +160,7 @@ export default function Board() {
 
   function scopeAccounts(scope: string): AccountItem[] {
     if (!data) return [];
-    if (scope === "ungrouped") return data.ungrouped.accounts;
+    if (scope === "ungrouped") return data.ungrouped?.accounts ?? [];
     const g = data.groups.find((g) => g.id === Number(scope.slice("group-".length)));
     return g?.accounts ?? [];
   }
@@ -246,7 +274,7 @@ export default function Board() {
 
   async function logout() {
     await fetch("/api/logout", { method: "POST" });
-    window.location.href = "/login";
+    window.location.href = "/";
   }
 
   if (error) {
@@ -264,8 +292,11 @@ export default function Board() {
     );
   }
 
+  const isAdmin = data.me?.role === "admin";
+
   const renderCard = (acc: AccountItem, scope: string) => {
     const cls = ["card"];
+    if (!isAdmin) cls.push("readonly");
     if (dragId === acc.id) cls.push("dragging");
     if (dropHint && dropHint.scope === scope && dropHint.anchorId === acc.id) {
       cls.push(dropHint.before ? "drop-before" : "drop-after");
@@ -281,18 +312,26 @@ export default function Board() {
       <div
         className={cls.join(" ")}
         key={acc.id}
-        draggable
-        onDragStart={(e) => {
-          setDragId(acc.id);
-          e.dataTransfer.effectAllowed = "move";
-          e.dataTransfer.setData("text/plain", String(acc.id));
-        }}
-        onDragEnd={() => {
-          setDragId(null);
-          setDropHint(null);
-        }}
-        onDragOver={(e) => cardDragOver(e, scope, acc)}
-        onDrop={(e) => cardDrop(e, scope, acc)}
+        draggable={isAdmin}
+        onDragStart={
+          isAdmin
+            ? (e) => {
+                setDragId(acc.id);
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", String(acc.id));
+              }
+            : undefined
+        }
+        onDragEnd={
+          isAdmin
+            ? () => {
+                setDragId(null);
+                setDropHint(null);
+              }
+            : undefined
+        }
+        onDragOver={isAdmin ? (e) => cardDragOver(e, scope, acc) : undefined}
+        onDrop={isAdmin ? (e) => cardDrop(e, scope, acc) : undefined}
       >
         <div className="card-head">
           <span className="card-name">{acc.name ?? acc.login}</span>
@@ -328,6 +367,46 @@ export default function Board() {
     );
   };
 
+  const renderGroup = (g: Group) => {
+    const scope = `group-${g.id}`;
+    const canDelete = isAdmin && !g.isPublic && g.ownerUserId == null;
+    return (
+      <section className="section" key={g.id}>
+        <div className="section-head">
+          <div className="title-wrap">
+            <h2
+              className={isAdmin ? "section-title editable" : "section-title"}
+              onClick={isAdmin ? () => renameGroup(g.id, g.name) : undefined}
+              title={isAdmin ? "点击重命名" : undefined}
+            >
+              {g.name} <span className="count">{g.accounts.length}</span>
+            </h2>
+            {g.ownerUserId != null && <span className="tag">个人组</span>}
+            {canDelete && (
+              <button className="group-del" onClick={() => deleteGroup(g.id, g.name)}>
+                删除
+              </button>
+            )}
+          </div>
+          {renderSummary(g.summary)}
+        </div>
+        <div
+          className={gridClass(scope)}
+          onDragOver={isAdmin ? (e) => gridDragOver(e, scope) : undefined}
+          onDrop={isAdmin ? (e) => gridDrop(e, scope) : undefined}
+        >
+          {g.accounts.length === 0 ? (
+            <div className="empty-group">
+              {isAdmin ? "暂无账号，拖拽到此处加入" : "暂无账号"}
+            </div>
+          ) : (
+            g.accounts.map((a) => renderCard(a, scope))
+          )}
+        </div>
+      </section>
+    );
+  };
+
   return (
     <main className="board">
       <header className="topbar">
@@ -336,29 +415,57 @@ export default function Board() {
           ShellHub
         </div>
         <div className="topbar-actions">
-          <div className="new-group">
-            <input
-              value={newGroup}
-              onChange={(e) => setNewGroup(e.target.value)}
-              placeholder="新分组名称"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") createGroup();
-              }}
-            />
-            <button onClick={createGroup}>添加分组</button>
-          </div>
-          <button className="logout" onClick={logout}>
-            退出
-          </button>
+          {isAdmin && (
+            <div className="new-group">
+              <input
+                value={newGroup}
+                onChange={(e) => setNewGroup(e.target.value)}
+                placeholder="新分组名称"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") createGroup();
+                }}
+              />
+              <button onClick={createGroup}>添加分组</button>
+            </div>
+          )}
+          {data.me ? (
+            <div className="user-box">
+              <span className="user-name">{data.me.username}</span>
+              <span className={isAdmin ? "role-badge admin" : "role-badge"}>
+                {isAdmin ? "管理员" : "用户"}
+              </span>
+              <button className="logout" onClick={logout}>
+                退出
+              </button>
+            </div>
+          ) : (
+            <div className="auth-actions">
+              <Link className="auth-btn" href="/login">
+                登录
+              </Link>
+              <Link className="auth-btn primary" href="/register">
+                注册
+              </Link>
+            </div>
+          )}
         </div>
       </header>
 
-      {data.ungrouped.accounts.length > 0 && (
+      {!data.me && (
+        <div className="guest-tip">
+          当前为访客模式，仅展示观赏组。<Link href="/login">登录</Link> 或{" "}
+          <Link href="/register">注册</Link> 后可查看自己的收益。
+        </div>
+      )}
+
+      {isAdmin && data.ungrouped && data.ungrouped.accounts.length > 0 && (
         <section className="section">
           <div className="section-head">
-            <h2 className="section-title">
-              未分组 <span className="count">{data.ungrouped.accounts.length}</span>
-            </h2>
+            <div className="title-wrap">
+              <h2 className="section-title">
+                未分组 <span className="count">{data.ungrouped.accounts.length}</span>
+              </h2>
+            </div>
             {renderSummary(data.ungrouped.summary)}
           </div>
           <div
@@ -371,34 +478,8 @@ export default function Board() {
         </section>
       )}
 
-      {data.groups.map((g) => {
-        const scope = `group-${g.id}`;
-        return (
-          <section className="section" key={g.id}>
-            <div className="section-head">
-              <h2
-                className="section-title editable"
-                onClick={() => renameGroup(g.id, g.name)}
-                title="点击重命名"
-              >
-                {g.name} <span className="count">{g.accounts.length}</span>
-              </h2>
-              {renderSummary(g.summary)}
-            </div>
-            <div
-              className={gridClass(scope)}
-              onDragOver={(e) => gridDragOver(e, scope)}
-              onDrop={(e) => gridDrop(e, scope)}
-            >
-              {g.accounts.length === 0 ? (
-                <div className="empty-group">暂无账号，拖拽到此处加入</div>
-              ) : (
-                g.accounts.map((a) => renderCard(a, scope))
-              )}
-            </div>
-          </section>
-        );
-      })}
+      {data.groups.length === 0 && <div className="empty-group">暂无分组</div>}
+      {data.groups.map(renderGroup)}
     </main>
   );
 }

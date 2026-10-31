@@ -1,5 +1,25 @@
 //+------------------------------------------------------------------+
-//|                                            拾贝测试版本.mq5       |
+//|                                            拾贝联网V1.1.mq5       |
+//|   V1.1 (2026-10-30,用户要求更名):                                |
+//|    ①EA 更名为"拾贝联网V1.1",文件名同步改为 拾贝联网V1.1.mq5;      |
+//|    ②代码逻辑与 v11.4 完全一致,未做行为改动;                      |
+//|   v11.4 测试版(2026-10-30,第二组门槛加固,双Agent复核一致):      |
+//|    ①InpPairRescueCnt 增加参数校验:必须>=1(填0/负数会让救援门槛     |
+//|      恒成立,第二组无救援即开);                                   |
+//|    ②TryOpenPair 增加 closing 拦截:参考组正在平仓时不开反向组      |
+//|      (平仓中救援单仍在,门槛会误判为"已进救援");                   |
+//|    ③注释自检闸门 g_commentBad 提到反向组之前,原来 TryOpenPair     |
+//|      先跑可绕过该闸门;                                           |
+//|    ④注释修正:g_rescueCnt 由持仓每秒重建,手动平单会回落(仅少开组); |
+//|   v11.3 测试版(2026-10-30,用户拍板第二组开组规则):               |
+//|    ①突破开组仅限零组:一组都没有时bid突破框上/下轨即开首组,        |
+//|      方向顺突破、InpBoxBreakSec秒硬节奏,行为保持不变;             |
+//|    ②有存活组时禁止按突破方向开第二组:第二组一律走反向组,          |
+//|      须存活组救援单张数≥InpPairRescueCnt(=1)才解锁,方向取          |
+//|      -存活组头仓方向(用户口径:第二组就是反向组,只是零组时才叫     |
+//|      突破组);                                                    |
+//|    ③修复现象:第一组未进救援、价格在框外时被突破模式开出第二组,    |
+//|      且方向可能与第一组头仓相同(突破方向=bid相对框上/下轨);       |
 //|   v10.43 测试版(2026-10-28,日志精简):                            |
 //|    ①救援三类拦截日志(冷却/出牌间隔/全局间距)+总手数上限拦截:     |
 //|      删600秒重打(LOG_GAP_SEC机制整体退场),只保留状态变化式——     |
@@ -292,7 +312,7 @@
 //|   历史版本(v1.20~v3.24)完整变更记录见 拾贝3.32终极版.mq5          |
 //+------------------------------------------------------------------+
 #property copyright "You"
-#property version   "10.43"
+#property version   "1.1"
 
 #include <Trade\Trade.mqh>
 
@@ -359,7 +379,7 @@ input group "═══ 方向框(v10.40,高低点框方案A) ═══"
 input ENUM_TIMEFRAMES InpBoxTF      = PERIOD_H4;  // 框参考周期(上/下轨=该周期近N根最高/最低价)
 input int    InpBoxBars     = 24;   // 框回看根数(参考周期K线根数,如H1×24=一天)
 input double InpBoxMinGap   = 30;   // 框最小间距(美元,下限1,v10.41放开;高度不足时以中点为中心扩展到此值,行情大不压缩用真实高低点)
-input double InpBoxBreakSec = 1;   // 突破缓慢开单间隔(秒,突破框线后每此秒数开一新组,守2组上限,回框恢复老节奏;须>=1)
+input double InpBoxBreakSec = 1;   // 突破开组间隔(秒,零组时突破框线每此秒数开首组;v11.3起有存活组不再按突破开组;须>=1)
 input bool   InpBoxShow     = true; // 画方向框(上/下轨/中点线+底色矩形)
 
 input group "═══ 止盈/利润回撤(账户货币) ═══"
@@ -1260,6 +1280,7 @@ int OnInit()
       || (InpProfitByLot && InpProfitPerLot <= 0)
       || InpRescueDist < 0 || InpStepB < 0 || InpCooldownT < 0
       || InpPairGridA <= 0 || InpPairStepB < 0 || InpPairRescueDist < 0
+      || InpPairRescueCnt < 1                       // v11.4:0/负数会让救援门槛恒成立,第二组无救援即开
       || InpBoxBars < 2 || InpBoxBars > 1000
       || InpBoxMinGap < 1 || InpBoxBreakSec < 1)
    {
@@ -1274,12 +1295,13 @@ int OnInit()
       else if(InpProfitByLot && InpProfitPerLot <= 0) why = "InpProfitPerLot 必须>0(<=0会开组即平仓空转)";
       else if(InpPairGridA <= 0) why = "InpPairGridA 必须>0(=0会单tick递归市价追单)";
       else if(InpPairStepB < 0 || InpPairRescueDist < 0) why = "InpPairStepB/InpPairRescueDist 不得为负";
+      else if(InpPairRescueCnt < 1) why = "InpPairRescueCnt 必须>=1(<=0会让第二组无救援即开)";
       else if(InpBoxBars < 2 || InpBoxBars > 1000) why = "InpBoxBars 须在2~1000之间";
       else if(InpBoxMinGap < 1) why = "InpBoxMinGap 不得低于1(用户定框最小间距,v10.41放开)";
       else if(InpBoxBreakSec < 1) why = "InpBoxBreakSec 必须>=1秒(突破开单节奏过快会失控)";
       else why = "InpStepB/InpCooldownT/InpRescueDist 不得为负";
       LogError("参数校验失败:" + why + ",拒绝加载");
-      Alert("拾贝测试版本 参数校验失败:\n", why);
+      Alert("拾贝联网V1.1 参数校验失败:\n", why);
       return(INIT_PARAMETERS_INCORRECT);
    }
 
@@ -1297,7 +1319,7 @@ int OnInit()
    else if(!ValidateActivation(InpActivationCode, g_authReason))
    {
       LogError("授权校验失败:" + g_authReason);
-      Alert("拾贝测试版本 授权校验失败:\n", g_authReason);
+      Alert("拾贝联网V1.1 授权校验失败:\n", g_authReason);
       return(INIT_FAILED);
    }
    else
@@ -1377,7 +1399,7 @@ int OnInit()
       : StringFormat("固定%.1f(=距离+加成)", InpRescueDist + InpRescueDistStep);
    BoxUpdate();   // v10.40 首次计算方向框(数据未就绪时启动日志显示否,运行中自动重试)
    LogInfo(StringFormat(
-      "拾贝测试版本 v10.43 启动 | %s | init=%.2f X=%.2f Y=%.2f | A=%.1f 反A=%.1f W=%d | "
+      "拾贝联网V1.1 启动 | %s | init=%.2f X=%.2f Y=%.2f | A=%.1f 反A=%.1f W=%d | "
       "阶段二 B=%.1f 反B=%.1f T=%.0f 单向=只顺头仓方向 | "
       "救援=%s 距离=%s 反距=%s 固定间距=%s 每轮张数=1(+%d/轮) 手数序列=%s(共%d个,用完沿用末值) 冷却=%.0f 出牌=%.0f 全局间距=%s | "
       "组=%d 反向组触发=%d次救援 反向组间隔=%s | 止盈 统一%s 救援=%s 回撤%s=%.1f%s | 周期=%d天 | Magic=%I64d",
@@ -1781,9 +1803,11 @@ bool OpenHeadAt(int g, int dir, bool isPair=false)
 //=== 反向组:救援联动补组(v6.00规则;v8.40随信号清理InpPairMode开关退场) ==
 // 由时间模式TryOpenByTime在有活跃组时直接调用(零组首组由TryOpenByTime开):
 //   最多持有2组;
-//   存活组启动条件(唯一):救援触发≥InpPairRescueCnt次(g_rescueCnt=
-//   组内当前持有救援单张数,救援单不单独平仓,组存活期只增不减,
-//   等价累计触发次数;缓存重建时由持仓还原,下单失败不计)
+//   存活组启动条件(唯一):救援单张数≥InpPairRescueCnt次(g_rescueCnt=
+//   组内当前持有救援单张数,EA 内无单独平救援单的路径,故组存活期实际
+//   只增不减;仅手动平单/强平会使计数回落,后果是少开组,不会提前开;
+//   缓存重建时由持仓还原,下单失败不计)
+//   参考组正在平仓(closing)不开(v11.4);
 //   满足且有空槽 → 开其反方向组;
 //   周末黑窗保留(OnTick调用处拦截)
 // v10.40 返回bool:返回true=本tick已开出反向组(调用方跳过突破开组,防同tick双开)
@@ -1799,6 +1823,9 @@ bool TryOpenPair()
    }
    if(aliveCnt >= 2) return false;              // 已有2组并存,不开新组
    if(alive < 0) return false;                  // 零组:首组由TryOpenByTime按秒数+框方向开,此处不处理
+   // v11.4:参考组正在平仓→不开反向组(其救援单仍在,门槛会误判为"已进救援";
+   // 且此时开出的新组已无对手组可对冲)
+   if(groups[alive].closing) return false;
 
    for(int g = 0; g < n; g++)
       if(!groups[g].active) { free_g = g; break; }
@@ -1901,11 +1928,12 @@ int BoxBreakState()
 //   ·零组框内:上一单整组平仓后满InpTimeOpenSec秒→按中点方向开首组
 //     (基准g_timeCloseTime,GV持久化重启续接);
 //   ·突破模式:实时bid突破上/下轨→每InpBoxBreakSec秒开一新组
-//     (顺突破方向,守最多2组上限,不等上一单走完,M秒硬节奏),
-//     回框自动停止恢复老节奏;突破计时基准g_boxBreakLastOpen
-//     随GV持久化重启续接;
-//   ·反向组=存活组救援触发≥InpPairRescueCnt次,救援联动保留
-//     (TryOpenPair开出后本tick不再突破开组,防同tick双开);
+//     (顺突破方向,不等上一单走完,M秒硬节奏),回框自动停止恢复老节奏;
+//     突破计时基准g_boxBreakLastOpen随GV持久化重启续接;
+//     v11.3(用户2026-10-30拍板):突破开组仅限零组(即首组),
+//     有存活组时不再按突破方向开第二组;
+//   ·第二组=反向组:存活组救援触发≥InpPairRescueCnt次才解锁,
+//     方向=-存活组头仓方向(不按突破方向);
 //   ·最多2组并存,两组各自止盈平仓互不影响;
 //   ·组内阶段一网格/阶段二/救援/止盈回撤逻辑完全不变;
 //   ·周末黑窗拦截不变(OnTick调用处);框未就绪/无空槽下tick重试。
@@ -1924,15 +1952,8 @@ void TryOpenByTime()
       return;
    }
 
-   // 反向组:救援联动(内部判槽位/救援次数/间隔;开出组则本tick到此为止)
-   for(int g = 0; g < g_maxGroups; g++)
-      if(groups[g].active)
-      {
-         if(TryOpenPair()) return;
-         break;
-      }
-
-   // v10.00 A3:注释自检发现异常持仓时停止新开组(突破组与首组同闸)
+   // v10.00 A3:注释自检发现异常持仓时停止新开组(突破组/首组/反向组同闸;
+   // v11.4:本闸门提到反向组之前,原来 TryOpenPair 先跑会绕过此闸门)
    if(g_commentBad)
    {
       static datetime cblLast = 0;
@@ -1944,15 +1965,30 @@ void TryOpenByTime()
       return;
    }
 
+   // 反向组:救援联动(内部判槽位/救援次数/间隔;开出组则本tick到此为止)
+   for(int g = 0; g < g_maxGroups; g++)
+      if(groups[g].active)
+      {
+         if(TryOpenPair()) return;
+         break;
+      }
+
    // 空闲槽位(新组只开前两槽,守最多2组上限)
    int free_g = -1;
    for(int g = 0; g < MathMin(g_maxGroups, 2); g++)
       if(!groups[g].active) { free_g = g; break; }
    if(free_g < 0) return;
 
+   // v11.3 突破开组仅限零组(用户2026-10-30拍板):
+   //   有存活组时第二组一律由上面的反向组开出(救援解锁+方向=-存活组头仓方向),
+   //   不允许按突破方向直接开第二组
+   bool hasAlive = false;
+   for(int g = 0; g < g_maxGroups; g++)
+      if(groups[g].active) { hasAlive = true; break; }
+
    // v10.40 突破模式:实时价在框外 → 每InpBoxBreakSec秒开一新组(顺突破方向)
    // (不等上一单走完,M秒硬节奏;2组上限由free_g保证;回框自动走不到此分支)
-   int breakDir = BoxBreakState();
+   int breakDir = hasAlive ? 0 : BoxBreakState();
    if(breakDir != 0)
    {
       if(g_boxBreakLastOpen > 0 &&
@@ -3156,7 +3192,7 @@ void UpdateDashboard()
    DashText(OBJ_PREFIX+"Title1", g_dashW / 2, 14, "黄金拾贝 GoldShiBei", COL_TITLE, 14, "Arial Black", ANCHOR_UPPER);
    DashRect(OBJ_PREFIX+"TitleAccent", g_dashW / 2 - 52, 42, 104, 2, COL_ACCENT, COL_ACCENT);
    DashText(OBJ_PREFIX+"VerTag", g_dashW - 14, 8,
-            "拾贝测试版本", COL_ACCENT, 8, "Consolas", ANCHOR_RIGHT_UPPER);
+            "拾贝联网V1.1", COL_ACCENT, 8, "Consolas", ANCHOR_RIGHT_UPPER);
    DashButton(OBJ_PREFIX+"BtnReset", 10, 8, 56, 16, "重置统计");   // v8.50 点击清空全部统计(OnChartEvent)
 
    // --- 双列统计:总盈利 | 最大亏损(从头到尾最大回撤,含盈利内回撤) ---
@@ -3226,7 +3262,7 @@ void OnTick()
       g_authReason = StringFormat("授权已过期(到期 %s)",
                      TimeToString(g_authExpiry, TIME_DATE | TIME_MINUTES));
       LogError(g_authReason + ",停止一切交易逻辑");
-      Alert("拾贝测试版本 ", g_authReason);
+      Alert("拾贝联网V1.1 ", g_authReason);
    }
    if(!g_authOK)
    {

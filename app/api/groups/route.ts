@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifySession, SESSION_COOKIE } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { getCurrentUser } from "@/lib/users";
 
 export async function POST(req: Request) {
-  const c = await cookies();
-  if (!verifySession(c.get(SESSION_COOKIE)?.value)) {
+  const me = await getCurrentUser();
+  if (!me) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  if (me.role !== "admin") {
+    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
 
   let body: any;
@@ -23,10 +25,12 @@ export async function POST(req: Request) {
 
   const db = getDb();
   const row = db
-    .prepare("SELECT COALESCE(MAX(sort_order), -1) AS m FROM account_group")
+    .prepare("SELECT COALESCE(MAX(sort_order), 0) AS m FROM account_group")
     .get() as { m: number };
   const info = db
-    .prepare("INSERT INTO account_group (name, sort_order) VALUES (?, ?)")
+    .prepare(
+      "INSERT INTO account_group (name, sort_order, is_public, owner_user_id) VALUES (?, ?, 0, NULL)"
+    )
     .run(name, row.m + 1);
 
   return NextResponse.json({ ok: true, id: Number(info.lastInsertRowid) });

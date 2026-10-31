@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, maybeCleanupSubmissions } from "@/lib/db";
 
 export async function POST(req: Request) {
   const key = req.headers.get("x-api-key");
@@ -53,6 +53,8 @@ export async function POST(req: Request) {
   db.prepare(
     "INSERT INTO submission (account_id, equity, today_profit, week_profit, hold_hours, created_at) VALUES (?, ?, ?, ?, ?, ?)"
   ).run(accountId, equity, todayProfit, weekProfit, holdHours, now);
+
+  maybeCleanupSubmissions(db);
 
   return NextResponse.json({ ok: true, accountId });
 }
